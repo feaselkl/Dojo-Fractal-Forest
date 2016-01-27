@@ -3,7 +3,7 @@ open System.Drawing
 open System.Windows.Forms
 
 // Create a form to display the graphics
-let width, height = 500, 500         
+let width, height = 1000, 850         
 let form = new Form(Width = width, Height = height)
 let box = new PictureBox(BackColor = Color.White, Dock = DockStyle.Fill)
 let image = new Bitmap(width, height)
@@ -44,18 +44,97 @@ let draw x y angle length width =
 
 let pi = Math.PI
 
-// Now... your turn to draw
-// The trunk
-draw 250. 50. (pi*(0.5)) 100. 4.
-let x, y = endpoint 250. 50. (pi*(0.5)) 100.
-// first and second branches
-draw x y (pi*(0.5 + 0.3)) 50. 2.
-draw x y (pi*(0.5 - 0.4)) 50. 2.
+//Many thanks to Dmitriy Kakhovsky for his contributions, insights, and gentle prodding to get this looking nicer.
+
+(*
+//This version is "cellular" in nature and ends up forming open honeycombs.
+let rec drawOnScreen x y rad currentlevel maxlevels =
+    let len = (maxlevels - currentlevel - 1.0) * 10.0
+    draw x y (pi*rad) len (maxlevels - currentlevel)
+    let newx, newy = endpoint x y (pi*(rad)) len
+    if currentlevel < maxlevels then
+        drawOnScreen newx newy (rad + 0.3)  (currentlevel + 1.0) maxlevels
+        drawOnScreen newx newy (rad - 0.4)  (currentlevel + 1.0) maxlevels
+
+let drawTree startx starty (maxlevels : float) =
+    draw startx starty (pi*(0.5)) (maxlevels * 9.0) maxlevels
+    let x, y = endpoint startx starty (pi*(0.5)) (maxlevels * 9.0)
+    let len = (maxlevels - 1.0) * 9.0
+    drawOnScreen x y 0.6 1.0 maxlevels
+    drawOnScreen x y 0.4 1.0 maxlevels
+
+drawTree 500. 50. 10.
+*)
+
+(*
+//This next version "leans" a bit.
+let rec drawOnScreen x y rad currentlevel maxlevels =
+    let len = (maxlevels - currentlevel - 1.0) * 10.0
+    draw x y (pi*rad) len (maxlevels - currentlevel)
+    let newx, newy = endpoint x y (pi*(rad)) len
+    if currentlevel < maxlevels then
+        drawOnScreen newx newy ((rad + 0.3)-0.05)  (currentlevel + 1.0) maxlevels
+        drawOnScreen newx newy ((rad - 0.4)-0.05)  (currentlevel + 1.0) maxlevels
+
+let drawTree startx starty (maxlevels : float) =
+    draw startx starty (pi*(0.5)) (maxlevels * 9.0) maxlevels
+    let x, y = endpoint startx starty (pi*(0.5)) (maxlevels * 9.0)
+    let len = (maxlevels - 1.0) * 9.0
+    drawOnScreen x y 0.6 1.0 maxlevels
+    drawOnScreen x y 0.4 1.0 maxlevels
+
+drawTree 500. 50. 10.
+*)
+
+(*
+//From here, we decided to create narrowing branches.
+let rec drawOnScreen x y rad currentlevel maxlevels =
+    let len = (maxlevels - currentlevel - 1.0) * 9.0
+    draw x y (pi*rad) len (maxlevels - currentlevel)
+    let newx, newy = endpoint x y (pi*(rad)) len
+    if currentlevel < maxlevels then
+        drawOnScreen newx newy (rad-0.05)  (currentlevel + 1.0) maxlevels
+        drawOnScreen newx newy (rad+0.05)  (currentlevel + 1.0) maxlevels
+
+let drawTree startx starty (maxlevels : float) =
+    draw startx starty (pi*(0.5)) (maxlevels * 9.0) maxlevels
+    let x, y = endpoint startx starty (pi*(0.5)) (maxlevels * 9.0)
+    let len = (maxlevels - 1.0) * 9.0
+    drawOnScreen x y 0.6 1.0 maxlevels
+    drawOnScreen x y 0.4 1.0 maxlevels
+
+drawTree 500. 50. 10.
+*)
+
+//This final version does a few things differently:
+//  1)  We have a progressive greening, where each level gets slightly more green.
+//  2)  The next branch's angle changes by a random number between 0 and 0.4.
+//  3)  We call drawTree in another recursive function and layer tree after tree on top to give depth.
+//  4)  In drawBigTree, we shift x slightly to make the trunk a little more realistic and spread out the branches a bit.
+let rand = System.Random()
+
+let rec drawOnScreen x y rad (currentlevel : float) maxlevels =
+    let len = (maxlevels - currentlevel - 1.0) * 9.0
+    let newg = Convert.ToInt32(currentlevel) * 10
+    let newbrush = new SolidBrush(Color.FromArgb(0, newg, 0))
+    drawLine graphics newbrush x y (pi*rad) len (maxlevels - currentlevel)
+    let newx, newy = endpoint x y (pi*(rad)) len
+    if currentlevel < maxlevels then
+        drawOnScreen newx newy (rad + (rand.NextDouble() * 0.4))  (currentlevel + 1.0) maxlevels
+        drawOnScreen newx newy (rad - (rand.NextDouble() * 0.4))  (currentlevel + 1.0) maxlevels
+
+let drawTree startx starty (maxlevels : float) =
+    draw startx starty (pi*(0.5)) (maxlevels * 9.0) maxlevels
+    let x, y = endpoint startx starty (pi*(0.5)) (maxlevels * 9.0)
+    let len = (maxlevels - 1.0) * 9.0
+    drawOnScreen x y 0.6 1.0 maxlevels
+    drawOnScreen x y 0.4 1.0 maxlevels
+
+let rec drawBigTree x y len =
+    if len > 0. then
+        drawTree x y len
+        drawBigTree (x - 2.) y (len - 1.)
+
+drawBigTree 500. 50. 14.
 
 form.ShowDialog()
-
-(* To do a nice fractal tree, using recursion is
-probably a good idea. The following link might
-come in handy if you have never used recursion in F#:
-http://en.wikibooks.org/wiki/F_Sharp_Programming/Recursion
-*)
